@@ -31,7 +31,7 @@ when_not_to_activate:
 
 跑完看 simplify report. 如有 fix, push fix 进 commit.
 
-### 2. 4 步 v2 数据 verification 强制 3 项
+### 2. 4 步 v2 数据 verification 强制 4 项
 
 ```bash
 # (a) vitest 全 pass
@@ -45,6 +45,17 @@ npm run typecheck 2>&1 | tail -3
 # (c) build green
 npm run build --workspaces --if-present 2>&1 | tail -10
 # 必: 全 worker / app build 通过
+
+# (d) playwright e2e (如项目有 playwright spec)
+if [ -d e2e ] || [ -d tests/e2e ] || ls **/*.spec.ts 2>/dev/null | grep -q playwright; then
+  npx playwright test 2>&1 | tail -10
+  # 必: 0 fail
+fi
+# (zeus 用 playwright MCP 实跑 deploy URL 是第 3 步, 跟这不一样)
+
+# (e) push 完整性 (新加, metis ship 漏 commit 教训)
+git status   # 必: working tree clean
+git ls-files .github/workflows/ scripts/ packages/ 2>&1 | wc -l   # 数应跟 EOD report 文件数一致
 ```
 
 任一 fail → fix → 重跑. 不允许跳过.
@@ -73,6 +84,8 @@ simplify ran ✅
 vitest 0 fail ✅
 typecheck green ✅
 build green ✅
+playwright e2e green ✅ (如项目有 playwright spec)
+push 完整性 ✅ (git status clean, file count 对得上)
 
 PR: <URL 如有>
 push: <commit-hash chain>
