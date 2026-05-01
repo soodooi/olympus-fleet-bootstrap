@@ -37,7 +37,8 @@
 ## 2. 创建 .kiro 骨架
 
 ```bash
-mkdir -p .kiro/{steering,steering/protocol,specs,handoffs,best-practice,skills,audits/auto-validate}
+mkdir -p .kiro/{steering,steering/protocol,specs,handoffs,best-practice,skills,audits/auto-validate,templates}
+mkdir -p scripts
 ```
 
 写 `.kiro/README.md`:
@@ -70,21 +71,33 @@ created: <today>
 
 ## 角色 = persona (希腊神 + 业务定位 + 是否 lane owner)
 
-### 核心 11 lane owner
+> **fleet 14 persona total** = 8 lane owner (绑文件路径) + zeus (orchestrator, no lane) + dike (zeus inline self-audit, no lane) + hephaestus (overflow / cross-lane, 按需启用) + 3 specialist (themis/prometheus/demeter, zeus inline 派遣)
 
-| Persona | 神格 | 业务定位 (通用化) | Lane |
+> **按 §1 答案裁** 3 档示意:
+> - **5 人最小**: zeus + atlas + 1 frontend lane (athena 或 daedalus) + dike + themis
+> - **8 人中等**: + iris + 1 后端 lane (artemis 或 argus) + 1 specialist (prometheus 或 demeter)
+> - **14 人完整**: 全套 (含 marketing / 全后端 / metis audit / 3 specialist)
+
+### 8 lane owner (绑文件路径)
+
+| Persona | 神格 | 业务定位 (通用化) | Lane scope |
 |---|---|---|---|
-| **@zeus** | 主神 | 主 orchestrator, PM/CTO, **不写代码** | main tree, 协调 |
-| **@atlas** | 扛天泰坦 | platform / cross-cutting 底座 owner | packages/platform/ + 共享层 |
-| **@athena** | 智慧 | **主前端 surface 1** (核心管理后台) | apps/admin/ 或同类 |
-| **@daedalus** | 工匠 | **主前端 surface 2** (创作 / 主用户面) | apps/creator-hub/ 或同类 |
-| **@iris** | 信使 | VI / 设计语言制定 (跨 surface 标准) | packages/brand/ + design tokens |
+| **@atlas** | 扛天泰坦 | platform / cross-cutting 底座 owner | `packages/platform/` + 共享层 |
+| **@athena** | 智慧 | **主前端 surface 1** (核心管理后台) | `apps/admin/` 或同类 |
+| **@daedalus** | 工匠 | **主前端 surface 2** (创作 / 主用户面) | `apps/creator-hub/` 或同类 |
+| **@iris** | 信使 | VI / 设计语言制定 (跨 surface 标准) | `packages/brand/` + design tokens |
 | **@apollo** | 光明 | **市场 / 增长 / 公开传播** (如有) | marketing / growth lane |
 | **@artemis** | 月神 | **数据 / 推荐 / 个性化** | recommendation / analytics |
 | **@argus** | 百眼巨人 | **运维 / 监控 / 基础设施** (VPS / 部署) | infra / ops |
-| **@hephaestus** | 锻造 | cross-lane execution arm (备用, 跨多 lane 时启用) | hephaestus (overflow) |
-| **@metis** | 智慧泰坦 | **审计 / 回归测试 / 跨 cutting QA** | metis (audit) |
-| **@dike** | 正义女神 | zeus 自身**质量自审** (启动期 daily, 成熟期 weekly) | zeus inline |
+| **@metis** | 智慧泰坦 | **审计 / 回归测试 / 跨 cutting QA** | audit lane |
+
+### 3 unbound (no lane)
+
+| Persona | 神格 | 角色 |
+|---|---|---|
+| **@zeus** | 主神 | 主 orchestrator, PM/CTO, **不写业务代码** (写 spec / handoff / review / 模板) |
+| **@dike** | 正义女神 | zeus 自身**质量自审** (启动期 daily, 成熟期 weekly) — zeus inline |
+| **@hephaestus** | 锻造 | cross-lane execution arm (overflow, 按需启用) |
 
 ### 3 specialist (zeus inline 派遣)
 
@@ -93,10 +106,6 @@ created: <today>
 | **@themis** | 法律 | review chief of staff (PR review 派 ECC reviewer) |
 | **@prometheus** | 智慧 | 后端 / 架构技术专家 (zeus inline review backend / arch design) |
 | **@demeter** | 大地 | 数据 / DB / schema 专家 (zeus inline review schema decisions) |
-
-> **小项目 (< 5 人)**: 留 zeus + atlas + 1-2 lane owner + dike + themis. 其他空着, 启动后渐增.
-
-> **大项目 (5+ lane)**: 全 14 位.
 ```
 
 ---
@@ -125,7 +134,15 @@ zeus 治理依据, 任何成员违反 = dike audit P0 flag.
 | 6 | verification | `protocol/verification.md` | spec pre-dispatch 4 步流程 (architect / review / e2e / data) |
 ```
 
-每个子协议写一份 markdown, 控制 < 200 行. 内容详 [§7 协议详细].
+每个子协议**已 ship 通用模板** in `.olympus-bootstrap/protocols/`:
+- `handoff.md` (~110 行) — frontmatter + body 结构 + status lifecycle + forward / collision / handover
+- `review.md` (~80 行) — tier ABC + specialist 决策树 + 4 步 pre-dispatch 流程
+- `git.md` (~80 行) — commit / branch / worktree / pre-push / squash-merge / lane-guard 6 步
+- `conduct.md` (~70 行) — 处女座 / 不绕 / EOD sequence / 自决边界
+- `knowledge.md` (~70 行) — KM 三层 + 4 目标 + daily iteration
+- `verification.md` 内容见 §7 (4 步流程)
+
+setup.sh 自动 copy 5 protocol 文件进 `.kiro/steering/protocol/`. 你按业务 customize.
 
 ---
 
@@ -269,16 +286,16 @@ updated: YYYY-MM-DD
 ```markdown
 # Spec Pre-Dispatch 4 步强制流程
 
-zeus 任何派遣前 spec / deploy 必经 4 步**全自动并行 dispatch**, 任一红线必修不派.
+zeus 任何派遣前 spec / deploy / merge 必经 4 步**全自动并行 dispatch**, 任一红线必修不派.
 
 | # | 步骤 | 谁做 | 找什么 |
 |---|---|---|---|
 | 1 | **架构检查** | fresh `architect` agent | 跟 platform 规范对齐? MACH 5 / adapter / module / multi-tenant / event-bus / Result / OTel? |
 | 2 | **代码 review** | fresh `code-architect` agent | 找具体问题 (gap / 矛盾 / risk / DAG 断 / DOD 不可验) |
 | 3 | **playwright e2e 实跑** | zeus 自己 (用 playwright MCP) | 真在浏览器加载 deploy URL, 0 console error + 截图对照 spec |
-| 4 | **数据 verification** | zeus 自己 (DB / API smoke) | 数据真接通, 不是 mock |
+| 4 | **数据 verification 强制 3 项** | zeus 自己 | (a) `npm test` (vitest) 所有 packages — 不允许任一 file fail; (b) `npm run typecheck` (tsc strict) green; (c) `npm run build --workspaces` green |
 
-**绝对不允许只 code review 不实跑** — themis "PASS" 在 playwright 实跑前不算数.
+**绝对不允许只 code review 不实跑** — themis "PASS" 在 playwright + vitest 实跑前不算数.
 
 4 步**同一 message 并行 dispatch**, 总耗时 ≈ 最慢一步, 不串行.
 
@@ -291,7 +308,16 @@ zeus 任何派遣前 spec / deploy 必经 4 步**全自动并行 dispatch**, 任
 
 ### 短期记忆 (内置)
 
-写 `~/.claude/projects/<project-hash>/memory/MEMORY.md`:
+> **路径 detection** (跨 OS, Claude 自动算):
+> ```bash
+> # macOS / Linux
+> PROJECT_KEY=$(ls ~/.claude/projects/ | grep -i "$(basename $(pwd))" | head -1)
+> echo "Project memory: $HOME/.claude/projects/$PROJECT_KEY/memory/MEMORY.md"
+> # Windows (Git Bash 同上)
+> # 实际 PROJECT_KEY 是路径编码 (e.g., D--code-space-mamamiya-store), 不是哈希
+> ```
+
+写 `$HOME/.claude/projects/<PROJECT_KEY>/memory/MEMORY.md`:
 
 ```markdown
 # Memory · 单文件
@@ -337,19 +363,32 @@ zeus 主动调用 (memory 准则):
 
 ## 9. 必装 ECC Skills (从 user 全局 skills)
 
-zeus 4 核心 skill 必有:
-- `~/.claude/skills/blueprint/` (战略规划)
-- `~/.claude/skills/claude-devfleet/` (sprint 派遣)
-- `~/.claude/skills/ralphinho-rfc-pipeline/` (架构 RFC)
-- `~/.claude/skills/santa-loop/` (PR adversarial review)
+> **ECC skills 路径 detection** — 兼容 plugin form (Claude Code v2.x+) 和 standalone form:
+> ```bash
+> # 自动 detect ECC skills location
+> ECC_SKILLS=""
+> if [ -d "$HOME/.claude/plugins" ]; then
+>   ECC_SKILLS=$(find $HOME/.claude/plugins -type d -name "skills" -path "*everything-claude-code*" 2>/dev/null | head -1)
+> fi
+> if [ -z "$ECC_SKILLS" ] && [ -d "$HOME/.claude/skills" ]; then
+>   ECC_SKILLS="$HOME/.claude/skills"
+> fi
+> echo "ECC skills at: $ECC_SKILLS"
+> ```
+
+zeus 4 核心 skill 必有 (在上面 detect 的路径内):
+- `blueprint/` (战略规划)
+- `claude-devfleet/` (sprint 派遣)
+- `ralphinho-rfc-pipeline/` (架构 RFC)
+- `santa-loop/` (PR adversarial review)
 
 通用辅助 skill:
-- `~/.claude/skills/brainstorming/` (HARD-GATE 决策前用)
-- `~/.claude/skills/dispatching-parallel-agents/` (并行 agent dispatch)
-- `~/.claude/skills/deep-research/` (调研用)
-- `~/.claude/skills/council/` (4 voice 决策)
+- `brainstorming/` (HARD-GATE 决策前用)
+- `dispatching-parallel-agents/` (并行 agent dispatch)
+- `deep-research/` (调研用)
+- `council/` (4 voice 决策)
 
-如缺, 用 `/configure-ecc` 命令安装.
+如缺, 用 `/configure-ecc` 命令安装. plugin form 装在 `~/.claude/plugins/`, standalone form 装在 `~/.claude/skills/`.
 
 ---
 
@@ -377,14 +416,16 @@ zeus 4 核心 skill 必有:
 新 zeus session 启动后:
 
 ```bash
-# 1. 验证 fleet 状态
-bash scripts/fleet-status.sh   # (你写一个, 列 active handoff + tree state)
+# 1. 验证 fleet 状态 (脚本已 ship in .olympus-bootstrap/scripts/fleet-status.sh)
+# setup.sh 自动 copy 进 scripts/, 直接跑:
+bash scripts/fleet-status.sh
+# 输出: active handoff 分类计数 + worktree state + branch ahead/behind + open PR
 
 # 2. 写第一个 handoff (派 atlas 搭 platform 底座)
 # 用 §6 模板 + 业务标题
 
 # 3. 启动 dike audit (zeus 质量自审, daily)
-# .kiro/skills/dike/SKILL.md
+# 项目层 .kiro/skills/dike/SKILL.md (你按 §13 §14 §15 加项目自定 skill)
 
 # 4. forward atlas session 这个 handoff
 # bao 是 messenger
@@ -410,18 +451,18 @@ bash scripts/fleet-status.sh   # (你写一个, 列 active handoff + tree state)
 把这个文件给另一个 Claude session, 让它执行:
 
 ```
-你是新项目的 zeus session. 读 `.kiro/templates/olympus-fleet-bootstrap.md` 全本.
+你是新项目的 zeus session. 读 `.kiro/templates/olympus-fleet-bootstrap.md` 全本 (或 `.olympus-bootstrap/BOOTSTRAP.md`).
 
-按 §1-§12 顺序执行:
+按 §1-§14 顺序执行:
 1. 问用户 4 个问题确定项目类型
-2. 创建 .kiro 骨架
-3. 写 olympus-roster.md (按用户答案定 fleet 大小)
-4. 写 olympus-protocol.md + 6 子协议
+2. 创建 .kiro 骨架 (含 templates/ + scripts/)
+3. 写 olympus-roster.md (按用户答案 5/8/14 三档裁)
+4. 写 olympus-protocol.md (索引), 5 子协议从 .olympus-bootstrap/protocols/ 自动 copy + verification.md 自写
 5. 写 lane-ownership.yaml (按业务定 lane)
-6. 写 handoff-template.md
-7. 写 verification.md (4 步流程)
-8. 配 memory 双系统 (短期 MEMORY.md + 长期 claude-memory-compiler clone+install)
-9. 验证 ECC skill 装好 (zeus 4 核心 + brainstorming + dispatching-parallel-agents)
+6. 写 handoff-template.md (从 §6 模板 copy)
+7. 写 verification.md (4 步流程, §7 内容)
+8. 配 memory 双系统 (短期 MEMORY.md path detection + 长期 claude-memory-compiler clone+install)
+9. 验证 ECC skill 装好 (兼容 plugin form 跟 standalone form, §9 detection 命令)
 10. 验证 playwright MCP 装好
 11. 派第一个 handoff (用户告诉你第一个任务)
 
@@ -435,12 +476,31 @@ bash scripts/fleet-status.sh   # (你写一个, 列 active handoff + tree state)
 完成后跑:
 
 ```bash
-ls .kiro/             # 应有 steering/ specs/ handoffs/ best-practice/ skills/ audits/
-cat .kiro/steering/olympus-roster.md   # 14 位 (或更少) 列出
-ls .kiro/steering/protocol/             # 6 sub protocol files
-cat ~/.claude/projects/<project>/memory/MEMORY.md | wc -l   # < 200 行
-ls ~/.claude/skills/ | grep -E "blueprint|devfleet|rfc-pipeline|santa-loop"   # 4 zeus skill
-ls ~/.claude/skills/claude-memory-compiler/   # 长期记忆装好
+# 1. .kiro 骨架
+ls .kiro/             # 应有 steering/ specs/ handoffs/ best-practice/ skills/ audits/ templates/
+
+# 2. fleet 花名册 + 6 子协议
+cat .kiro/steering/olympus-roster.md   # 14 (或 5/8) 位列出
+ls .kiro/steering/protocol/             # 6 sub protocol files (handoff/review/git/conduct/knowledge/verification.md)
+
+# 3. fleet status 脚本
+bash scripts/fleet-status.sh           # 输出 active handoff + worktree + branch state
+
+# 4. memory (路径 detection)
+PROJECT_KEY=$(ls ~/.claude/projects/ | grep -i "$(basename $(pwd))" | head -1)
+wc -l "$HOME/.claude/projects/$PROJECT_KEY/memory/MEMORY.md"   # < 200 行
+
+# 5. ECC skills (plugin form 优先, 失败 fall through standalone)
+ECC_SKILLS=""
+[ -d "$HOME/.claude/plugins" ] && ECC_SKILLS=$(find $HOME/.claude/plugins -type d -name "skills" -path "*everything-claude-code*" 2>/dev/null | head -1)
+[ -z "$ECC_SKILLS" ] && [ -d "$HOME/.claude/skills" ] && ECC_SKILLS="$HOME/.claude/skills"
+ls "$ECC_SKILLS" | grep -E "blueprint|devfleet|rfc-pipeline|santa-loop"   # 4 zeus skill
+
+# 6. 长期记忆
+ls ~/.claude/skills/claude-memory-compiler/   # 装好
+
+# 7. Playwright MCP
+grep -q "playwright" ~/.claude.json && echo "MCP OK" || echo "MCP missing — see §10"
 ```
 
 全过 = bootstrap 成功. zeus 可启动派第一个 handoff.
